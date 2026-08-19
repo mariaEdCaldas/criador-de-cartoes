@@ -1,0 +1,438 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Criador de Cartões de Aniversário</title>
+<style>
+  :root{
+    --fundo:#0e1a2b; --painel:#16263d; --painel2:#1d3050;
+    --borda:#2a4368; --texto:#eaf1fb; --suave:#9db2d0; --azul:#2f6fd0; --amarelo:#f5b301;
+    --verde:#28a35b; --vermelho:#d5493f;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:"Segoe UI",system-ui,sans-serif;background:var(--fundo);color:var(--texto)}
+  header{background:linear-gradient(90deg,#12294a,#1b3f74);padding:16px 24px;display:flex;
+    align-items:center;gap:16px;flex-wrap:wrap;border-bottom:1px solid var(--borda)}
+  header h1{font-size:18px;margin:0;flex:1}
+  .pill{padding:5px 12px;border-radius:999px;font-size:13px;font-weight:600}
+  .pill.on{background:rgba(40,163,91,.2);color:#7ee2a8}
+  .pill.off{background:rgba(213,73,63,.2);color:#ff9c94}
+  .pill.wait{background:rgba(245,179,1,.2);color:#ffd977}
+  nav{display:flex;gap:4px;padding:0 24px;background:var(--painel);border-bottom:1px solid var(--borda);flex-wrap:wrap}
+  nav button{background:none;border:none;color:var(--suave);padding:14px 18px;cursor:pointer;
+    font-size:14px;font-weight:600;border-bottom:3px solid transparent}
+  nav button.ativa{color:#fff;border-bottom-color:var(--amarelo)}
+  main{padding:24px;max-width:1180px;margin:0 auto}
+  section{display:none}
+  section.ativa{display:block}
+  .cartao{background:var(--painel);border:1px solid var(--borda);border-radius:12px;padding:20px;margin-bottom:18px}
+  .cartao h2{margin:0 0 4px;font-size:16px}
+  .cartao p.dica{color:var(--suave);font-size:13px;margin:0 0 16px;line-height:1.5}
+  button.acao{background:var(--azul);color:#fff;border:none;padding:10px 18px;border-radius:8px;
+    font-weight:600;cursor:pointer;font-size:14px}
+  button.acao:hover{filter:brightness(1.12)}
+  button.acao[disabled]{opacity:.45;cursor:not-allowed}
+  button.secundaria{background:var(--painel2);border:1px solid var(--borda)}
+  button.perigo{background:var(--vermelho)}
+  input,select{background:var(--painel2);border:1px solid var(--borda);color:var(--texto);
+    padding:8px 10px;border-radius:7px;font-size:14px;font-family:inherit}
+  label{font-size:13px;color:var(--suave);display:block;margin-bottom:5px}
+  table{width:100%;border-collapse:collapse;font-size:14px}
+  th{text-align:left;color:var(--suave);font-weight:600;font-size:12px;text-transform:uppercase;
+    padding:8px;border-bottom:1px solid var(--borda)}
+  td{padding:8px;border-bottom:1px solid rgba(42,67,104,.5);vertical-align:middle}
+  tr:hover td{background:rgba(47,111,208,.07)}
+  .linha{display:flex;gap:12px;align-items:end;flex-wrap:wrap;margin-bottom:14px}
+  .aviso{background:rgba(245,179,1,.12);border:1px solid rgba(245,179,1,.4);color:#ffd977;
+    padding:12px 14px;border-radius:8px;font-size:13.5px;line-height:1.5;margin-bottom:16px}
+  .erro{background:rgba(213,73,63,.15);border-color:rgba(213,73,63,.5);color:#ff9c94}
+  .ok{background:rgba(40,163,91,.15);border-color:rgba(40,163,91,.5);color:#7ee2a8}
+  .grade{display:grid;grid-template-columns:1fr 340px;gap:24px;align-items:start}
+  .previa img{width:100%;border-radius:10px;border:1px solid var(--borda);background:#000}
+  .tag{font-size:11px;padding:2px 8px;border-radius:999px;background:var(--painel2);color:var(--suave)}
+  .tag.alerta{background:rgba(245,179,1,.18);color:#ffd977}
+  .barra{height:8px;background:var(--painel2);border-radius:4px;overflow:hidden;margin:10px 0}
+  .barra div{height:100%;background:var(--verde);transition:width .3s}
+  .miolo{display:flex;gap:10px;align-items:center}
+  code{background:var(--painel2);padding:2px 6px;border-radius:4px;font-size:12.5px}
+  .qr{text-align:center}
+  .qr img{background:#fff;padding:12px;border-radius:12px;max-width:280px}
+  @media(max-width:900px){.grade{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header>
+  <h1>🎂 Criador de Cartões de Aniversário</h1>
+  <span id="statusBase" class="pill wait">carregando…</span>
+  <span id="statusWa" class="pill off">WhatsApp: —</span>
+  <button class="acao secundaria" onclick="conectarWhatsapp()">Conectar WhatsApp</button>
+</header>
+
+<nav>
+  <button class="ativa" data-aba="hoje">Hoje</button>
+  <button data-aba="mes">Lista do mês</button>
+  <button data-aba="cartao">Modelo do cartão</button>
+  <button data-aba="importar">Importar PDF</button>
+  <button data-aba="envios">Histórico</button>
+  <button data-aba="config">Configurações</button>
+</nav>
+
+<main>
+  <!-- ABA HOJE -->
+  <section id="aba-hoje" class="ativa">
+    <div class="cartao">
+      <h2>Envios do dia</h2>
+      <p class="dica">Escolha a data, confira a fila e dispare. <strong>Simular</strong> gera os cartões
+        na pasta <code>cartoes/</code> sem mandar nada no WhatsApp.</p>
+      <div class="linha">
+        <div><label>Data</label><input type="date" id="dataFila" onchange="carregarFila()" /></div>
+        <button class="acao secundaria" onclick="enviar(true)">Simular (não envia)</button>
+        <button class="acao" id="btnEnviar" onclick="enviar(false)">Enviar agora</button>
+      </div>
+      <div id="progresso"></div>
+      <div id="filaTabela"></div>
+    </div>
+  </section>
+
+  <!-- ABA MES -->
+  <section id="aba-mes">
+    <div class="cartao">
+      <h2>Aniversariantes importados</h2>
+      <p class="dica">Corrija o gênero (muda “Amigo/Amiga” no cartão) ou o telefone. Correções de gênero
+        viram dicionário e valem para os próximos meses. Desmarque “Ativo” para não enviar a alguém.</p>
+      <div class="linha">
+        <div><label>Buscar nome</label><input id="busca" oninput="carregarPessoas()" placeholder="ex.: Elaine" /></div>
+        <div><label>Dia</label><input type="number" id="filtroDia" min="1" max="31" style="width:90px" oninput="carregarPessoas()" /></div>
+        <div><label><input type="checkbox" id="soProblemas" onchange="carregarPessoas()" /> só pendências</label></div>
+      </div>
+      <div id="pessoasTabela"></div>
+    </div>
+  </section>
+
+  <!-- ABA CARTAO -->
+  <section id="aba-cartao">
+    <div class="cartao">
+      <h2>Posição e fonte do nome</h2>
+      <p class="dica">Ajuste até o nome cair no lugar certo da arte e clique em salvar. Os valores são
+        proporcionais à imagem, então continuam valendo se você trocar o modelo por outro de tamanho diferente.</p>
+      <div class="grade">
+        <div>
+          <div class="linha">
+            <div><label>Nome de teste</label><input id="tNome" value="Elaine Camargo" oninput="atualizarPrevia()" /></div>
+            <div><label>Gênero</label>
+              <select id="tGenero" onchange="atualizarPrevia()"><option value="F">Amiga</option><option value="M">Amigo</option></select>
+            </div>
+          </div>
+          <div class="linha">
+            <div style="flex:1"><label>Horizontal (x): <span id="vx"></span></label>
+              <input type="range" id="cx" min="0" max="1" step="0.005" style="width:100%" oninput="atualizarPrevia()" /></div>
+          </div>
+          <div class="linha">
+            <div style="flex:1"><label>Vertical (y): <span id="vy"></span></label>
+              <input type="range" id="cy" min="0" max="1" step="0.005" style="width:100%" oninput="atualizarPrevia()" /></div>
+          </div>
+          <div class="linha">
+            <div style="flex:1"><label>Tamanho da fonte: <span id="vt"></span></label>
+              <input type="range" id="ct" min="0.01" max="0.12" step="0.002" style="width:100%" oninput="atualizarPrevia()" /></div>
+          </div>
+          <div class="linha">
+            <div><label>Fonte</label><select id="cFonte" onchange="atualizarPrevia()"></select></div>
+            <div><label>Estilo</label><select id="cEstilo" onchange="atualizarPrevia()">
+              <option value="italic">itálico</option><option value="normal">normal</option></select></div>
+            <div><label>Peso</label><select id="cPeso" onchange="atualizarPrevia()">
+              <option value="bold">negrito</option><option value="900">extra negrito</option><option value="normal">normal</option></select></div>
+            <div><label>Cor</label><input type="color" id="cCor" onchange="atualizarPrevia()" style="width:60px;padding:2px" /></div>
+          </div>
+          <div class="linha">
+            <div style="flex:1"><label>Texto do cartão (use {tratamento} e {nome})</label>
+              <input id="cTexto" style="width:100%" oninput="atualizarPrevia()" /></div>
+          </div>
+          <button class="acao" onclick="salvarCartao()">Salvar modelo</button>
+          <span id="msgCartao"></span>
+        </div>
+        <div class="previa">
+          <label>Prévia</label>
+          <img id="previaImg" alt="prévia do cartão" />
+          <p class="dica" id="previaErro"></p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ABA IMPORTAR -->
+  <section id="aba-importar">
+    <div class="cartao">
+      <h2>Importar o PDF do mês</h2>
+      <p class="dica">Envie o mesmo PDF “Aniversariantes &lt;mês&gt;” que você recebe. O sistema lê nome,
+        telefone, data e coordenador de cada pessoa e substitui a lista atual (uma cópia da anterior fica em <code>dados/</code>).</p>
+      <div class="linha">
+        <input type="file" id="arquivoPdf" accept="application/pdf" />
+        <button class="acao" onclick="importar()">Importar</button>
+      </div>
+      <div id="msgImport"></div>
+    </div>
+  </section>
+
+  <!-- ABA ENVIOS -->
+  <section id="aba-envios">
+    <div class="cartao">
+      <h2>Histórico de envios</h2>
+      <p class="dica">Registro de tudo que saiu. O sistema nunca manda o mesmo cartão duas vezes no mesmo dia.</p>
+      <div id="enviosTabela"></div>
+    </div>
+  </section>
+
+  <!-- ABA CONFIG -->
+  <section id="aba-config">
+    <div class="cartao">
+      <h2>Envio</h2>
+      <div class="linha">
+        <div><label>Horário do disparo diário</label><input type="time" id="gHorario" /></div>
+        <div><label>Envio automático</label><br /><input type="checkbox" id="gAuto" /> ligado</div>
+        <div><label>Intervalo mín. (s)</label><input type="number" id="gMin" style="width:100px" /></div>
+        <div><label>Intervalo máx. (s)</label><input type="number" id="gMax" style="width:100px" /></div>
+        <div><label>Limite por dia</label><input type="number" id="gLimite" style="width:100px" /></div>
+      </div>
+      <div class="linha">
+        <div style="flex:1"><label>Legenda da mensagem (use {nome})</label><input id="gLegenda" style="width:100%" /></div>
+        <div><label>Enviar legenda</label><br /><input type="checkbox" id="gEnviarLegenda" /> sim</div>
+      </div>
+      <button class="acao" onclick="salvarConfigEnvio()">Salvar</button>
+      <span id="msgConfig"></span>
+    </div>
+    <div class="cartao qr" id="blocoQr" style="display:none">
+      <h2>Conectar o WhatsApp</h2>
+      <p class="dica">No celular: WhatsApp → Aparelhos conectados → Conectar aparelho → aponte para o código.</p>
+      <img id="qrImg" alt="QR code" />
+    </div>
+  </section>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+let estado = null;
+
+document.querySelectorAll('nav button').forEach((botao) => {
+  botao.onclick = () => {
+    document.querySelectorAll('nav button').forEach((b) => b.classList.remove('ativa'));
+    document.querySelectorAll('section').forEach((s) => s.classList.remove('ativa'));
+    botao.classList.add('ativa');
+    $('aba-' + botao.dataset.aba).classList.add('ativa');
+    if (botao.dataset.aba === 'mes') carregarPessoas();
+    if (botao.dataset.aba === 'envios') carregarEnvios();
+    if (botao.dataset.aba === 'cartao') atualizarPrevia();
+  };
+});
+
+async function carregarEstado() {
+  estado = await (await fetch('/api/estado')).json();
+  const b = estado.base;
+  $('statusBase').className = 'pill ' + (b.total ? 'on' : 'off');
+  $('statusBase').textContent = b.total
+    ? `${b.total} aniversariantes de ${b.mesNome}`
+    : 'nenhum PDF importado';
+
+  const wa = estado.whatsapp;
+  const rotulos = { conectado: 'on', qr: 'wait', iniciando: 'wait', desconectado: 'off' };
+  $('statusWa').className = 'pill ' + (rotulos[wa.estado] || 'off');
+  $('statusWa').textContent = 'WhatsApp: ' + (wa.estado === 'conectado' ? 'conectado ' + (wa.telefone || '') : wa.estado);
+  $('blocoQr').style.display = wa.qr ? 'block' : 'none';
+  if (wa.qr) $('qrImg').src = wa.qr;
+
+  mostrarProgresso(estado.rodada);
+  if (!$('cx').dataset.pronto) preencherFormularios();
+}
+
+function preencherFormularios() {
+  const c = estado.config;
+  $('cx').value = c.cartao.posicao.x;
+  $('cy').value = c.cartao.posicao.y;
+  $('ct').value = c.cartao.fonte.tamanho;
+  $('cCor').value = c.cartao.fonte.cor;
+  $('cTexto').value = c.cartao.texto;
+  $('cEstilo').value = c.cartao.fonte.estilo;
+  $('cPeso').value = c.cartao.fonte.peso;
+  $('cFonte').innerHTML = estado.fontes
+    .map((f) => `<option ${f === c.cartao.fonte.familia ? 'selected' : ''}>${f}</option>`).join('');
+  $('cx').dataset.pronto = '1';
+  $('gHorario').value = c.envio.horario;
+  $('gAuto').checked = c.envio.automatico;
+  $('gMin').value = c.envio.intervaloMinimoSegundos;
+  $('gMax').value = c.envio.intervaloMaximoSegundos;
+  $('gLimite').value = c.envio.limiteDiario;
+  $('gLegenda').value = c.mensagem.legenda;
+  $('gEnviarLegenda').checked = c.mensagem.enviarLegenda;
+  if (!$('dataFila').value) $('dataFila').value = estado.hoje;
+  atualizarPrevia();
+  carregarFila();
+}
+
+function mostrarProgresso(r) {
+  if (!r || (!r.rodando && !r.total)) { $('progresso').innerHTML = ''; return; }
+  const pct = r.total ? Math.round((r.feitos / r.total) * 100) : 0;
+  const ok = r.itens.filter((i) => i.status === 'enviado' || i.status === 'simulado').length;
+  const erros = r.itens.filter((i) => i.status === 'erro');
+  $('progresso').innerHTML = `
+    <div class="aviso ${r.rodando ? '' : 'ok'}">
+      ${r.rodando ? '⏳ Enviando' : '✅ Rodada concluída'}${r.simulacao ? ' (simulação)' : ''}:
+      ${r.feitos}/${r.total} — ${ok} ok, ${erros.length} com erro
+      <div class="barra"><div style="width:${pct}%"></div></div>
+      ${erros.map((e) => `<div>❌ ${e.nome}: ${e.erro}</div>`).join('')}
+    </div>`;
+  $('btnEnviar').disabled = r.rodando;
+}
+
+async function carregarFila() {
+  const data = $('dataFila').value;
+  const { fila } = await (await fetch('/api/fila?data=' + data)).json();
+  if (!fila.length) {
+    $('filaTabela').innerHTML = '<p class="dica">Ninguém faz aniversário nessa data na lista importada.</p>';
+    return;
+  }
+  $('filaTabela').innerHTML = `
+    <table><thead><tr><th>Nome</th><th>Cartão dirá</th><th>Telefone</th><th>Coordenador</th><th>Situação</th></tr></thead>
+    <tbody>${fila.map((i) => `
+      <tr>
+        <td>${i.pessoa.nome}</td>
+        <td>${i.textoCartao}</td>
+        <td>${formatarTel(i.pessoa.telefone)}</td>
+        <td>${i.pessoa.coordenador || '—'}</td>
+        <td>${i.enviavel ? '<span class="tag" style="color:#7ee2a8">vai enviar</span>'
+          : '<span class="tag alerta">' + i.motivos.join(', ') + '</span>'}</td>
+      </tr>`).join('')}</tbody></table>`;
+}
+
+async function carregarPessoas() {
+  const params = new URLSearchParams();
+  if ($('busca').value) params.set('busca', $('busca').value);
+  if ($('filtroDia').value) params.set('dia', $('filtroDia').value);
+  if ($('soProblemas').checked) params.set('problemas', '1');
+  const { pessoas } = await (await fetch('/api/pessoas?' + params)).json();
+  $('pessoasTabela').innerHTML = `
+    <p class="dica">${pessoas.length} pessoa(s)</p>
+    <table><thead><tr><th>Dia</th><th>Nome</th><th>Trat.</th><th>Telefone</th><th>Ativo</th><th>Pendências</th><th></th></tr></thead>
+    <tbody>${pessoas.map((p) => `
+      <tr>
+        <td>${p.dia}</td>
+        <td>${p.nome}<br /><span class="tag">${p.coordenador || 'sem coordenador'}</span></td>
+        <td><select onchange="salvarPessoa('${p.id}',{genero:this.value})">
+          <option value="F" ${p.genero === 'F' ? 'selected' : ''}>Amiga</option>
+          <option value="M" ${p.genero === 'M' ? 'selected' : ''}>Amigo</option></select></td>
+        <td><input value="${formatarTel(p.telefone)}" style="width:150px"
+          onchange="salvarPessoa('${p.id}',{telefone:this.value})" /></td>
+        <td><input type="checkbox" ${p.ativo ? 'checked' : ''}
+          onchange="salvarPessoa('${p.id}',{ativo:this.checked})" /></td>
+        <td>${(p.problemas || []).map((x) => `<span class="tag alerta">${x}</span>`).join(' ') || '—'}</td>
+        <td><button class="acao secundaria" onclick="verCartao('${p.id}')">ver cartão</button></td>
+      </tr>`).join('')}</tbody></table>`;
+}
+
+async function salvarPessoa(id, mudanca) {
+  await fetch('/api/pessoas/' + id, {
+    method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(mudanca),
+  });
+  carregarFila();
+}
+
+function verCartao(id) {
+  window.open('/api/cartao/' + id + '.png?t=' + Date.now(), '_blank');
+}
+
+function formatarTel(e164) {
+  if (!e164) return '';
+  const m = /^55(\d{2})(\d{4,5})(\d{4})$/.exec(e164);
+  return m ? `(${m[1]}) ${m[2]}-${m[3]}` : e164;
+}
+
+function atualizarPrevia() {
+  if (!estado) return;
+  $('vx').textContent = $('cx').value;
+  $('vy').textContent = $('cy').value;
+  $('vt').textContent = $('ct').value;
+  if (!estado.templateExiste) {
+    $('previaErro').innerHTML = '<span class="erro aviso">Coloque a arte em branco do cartão em <code>assets/template.png</code>.</span>';
+    return;
+  }
+  $('previaErro').textContent = '';
+  const p = new URLSearchParams({
+    nome: $('tNome').value, genero: $('tGenero').value,
+    x: $('cx').value, y: $('cy').value, tamanho: $('ct').value, t: Date.now(),
+  });
+  $('previaImg').src = '/api/cartao-exemplo.png?' + p;
+}
+
+async function salvarCartao() {
+  const corpo = { cartao: {
+    texto: $('cTexto').value,
+    posicao: { x: Number($('cx').value), y: Number($('cy').value) },
+    fonte: { tamanho: Number($('ct').value), cor: $('cCor').value,
+      familia: $('cFonte').value, estilo: $('cEstilo').value, peso: $('cPeso').value },
+  } };
+  await fetch('/api/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(corpo) });
+  $('msgCartao').textContent = ' ✅ salvo';
+  setTimeout(() => ($('msgCartao').textContent = ''), 2500);
+  await carregarEstado();
+  atualizarPrevia();
+}
+
+async function salvarConfigEnvio() {
+  const corpo = {
+    envio: { horario: $('gHorario').value, automatico: $('gAuto').checked,
+      intervaloMinimoSegundos: Number($('gMin').value), intervaloMaximoSegundos: Number($('gMax').value),
+      limiteDiario: Number($('gLimite').value) },
+    mensagem: { legenda: $('gLegenda').value, enviarLegenda: $('gEnviarLegenda').checked },
+  };
+  await fetch('/api/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(corpo) });
+  $('msgConfig').textContent = ' ✅ salvo';
+  setTimeout(() => ($('msgConfig').textContent = ''), 2500);
+}
+
+async function importar() {
+  const arquivo = $('arquivoPdf').files[0];
+  if (!arquivo) return alert('Escolha o PDF.');
+  const dados = new FormData();
+  dados.append('pdf', arquivo);
+  $('msgImport').innerHTML = '<div class="aviso">Lendo o PDF…</div>';
+  const r = await (await fetch('/api/importar', { method: 'POST', body: dados })).json();
+  $('msgImport').innerHTML = r.ok
+    ? `<div class="aviso ok">✅ ${r.total} aniversariantes de ${r.mes} importados.</div>`
+    : `<div class="aviso erro">❌ ${r.erro}</div>`;
+  carregarEstado();
+}
+
+async function enviar(simulacao) {
+  const fila = (await (await fetch('/api/fila?data=' + $('dataFila').value)).json()).fila
+    .filter((i) => i.enviavel);
+  if (!fila.length) return alert('Não há ninguém para enviar nessa data.');
+  if (!simulacao && !confirm(`Enviar ${fila.length} cartão(ões) pelo WhatsApp agora?`)) return;
+  await fetch('/api/enviar', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ data: $('dataFila').value, simulacao }),
+  });
+  carregarEstado();
+}
+
+async function conectarWhatsapp() {
+  await fetch('/api/whatsapp/conectar', { method: 'POST' });
+  document.querySelector('nav button[data-aba="config"]').click();
+  alert('Abrindo o WhatsApp… o QR code aparece na aba Configurações em alguns segundos.');
+}
+
+async function carregarEnvios() {
+  const { enviados } = await (await fetch('/api/enviados')).json();
+  $('enviosTabela').innerHTML = enviados.length ? `
+    <table><thead><tr><th>Quando</th><th>Nome</th><th>Telefone</th><th>Status</th><th>Detalhe</th></tr></thead>
+    <tbody>${enviados.map((e) => `
+      <tr><td>${new Date(e.quando).toLocaleString('pt-BR')}</td><td>${e.nome}</td>
+      <td>${formatarTel(e.telefone)}</td>
+      <td>${e.status === 'enviado' ? '✅ enviado' : '❌ ' + e.status}</td>
+      <td>${e.erro || e.texto || ''}</td></tr>`).join('')}</tbody></table>`
+    : '<p class="dica">Nada enviado ainda.</p>';
+}
+
+carregarEstado();
+setInterval(carregarEstado, 4000);
+</script>
+</body>
+</html>

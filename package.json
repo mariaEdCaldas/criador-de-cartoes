@@ -1,0 +1,26 @@
+{
+  "name": "criador-de-cartoes",
+  "version": "1.0.0",
+  "description": "Importa o PDF mensal de aniversariantes, gera os cartoes personalizados e agenda o envio pelo WhatsApp",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "start": "node src/index.js servidor",
+    "importar": "node src/index.js importar",
+    "gerar": "node src/index.js gerar",
+    "enviar": "node src/index.js enviar",
+    "preview": "node src/index.js preview"
+  },
+  "dependencies": {
+    "@napi-rs/canvas": "^0.1.60",
+    "express": "^4.21.2",
+    "multer": "^1.4.5-lts.1",
+    "node-cron": "^3.0.3",
+    "pdfjs-dist": "^4.10.38",
+    "qrcode": "^1.5.4",
+    "whatsapp-web.js": "^1.26.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

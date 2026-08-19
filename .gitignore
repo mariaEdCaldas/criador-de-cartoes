@@ -1,0 +1,9 @@
+node_modules/
+
+# Dados pessoais dos aniversariantes (nome, endereco, telefone): NAO versionar.
+dados/
+cartoes/
+exemplos/
+
+# A arte do cartao fica local.
+assets/template.*

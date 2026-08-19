@@ -1,0 +1,44 @@
+{
+  "cartao": {
+    "template": "assets/template.jpg",
+    "texto": "{tratamento} {nome}!",
+    "usarPrimeiroNome": true,
+    "fonte": {
+      "arquivo": "",
+      "familia": "Franklin Gothic Demi Cond",
+      "estilo": "italic",
+      "peso": "bold",
+      "tamanho": 0.047,
+      "cor": "#FFFFFF",
+      "sombra": {
+        "cor": "rgba(0,0,0,0.45)",
+        "desfoque": 0.012,
+        "deslocamentoX": 0.003,
+        "deslocamentoY": 0.004
+      }
+    },
+    "posicao": {
+      "x": 0.712,
+      "y": 0.386,
+      "alinhamento": "center",
+      "larguraMaxima": 0.46
+    }
+  },
+  "mensagem": {
+    "legenda": "Feliz aniversário, {nome}! 🎉 Que Deus abençoe muito o seu dia.",
+    "enviarLegenda": true
+  },
+  "envio": {
+    "horario": "08:00",
+    "fusoHorario": "America/Campo_Grande",
+    "automatico": false,
+    "intervaloMinimoSegundos": 25,
+    "intervaloMaximoSegundos": 70,
+    "limiteDiario": 120,
+    "dddPadrao": "67",
+    "paisPadrao": "55"
+  },
+  "servidor": {
+    "porta": 3000
+  }
+}
