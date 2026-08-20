@@ -56,6 +56,17 @@
   .barra div{height:100%;background:var(--verde);transition:width .3s}
   .miolo{display:flex;gap:10px;align-items:center}
   code{background:var(--painel2);padding:2px 6px;border-radius:4px;font-size:12.5px}
+  details.cartao{padding:0}
+  details.cartao > summary{list-style:none;cursor:pointer;padding:16px 20px;display:flex;
+    align-items:center;gap:10px;font-size:16px;font-weight:600;user-select:none;border-radius:12px}
+  details.cartao > summary::-webkit-details-marker{display:none}
+  details.cartao > summary::before{content:'+';display:inline-flex;align-items:center;
+    justify-content:center;width:22px;height:22px;border-radius:6px;background:var(--azul);
+    color:#fff;font-size:17px;line-height:1;flex:none}
+  details.cartao[open] > summary::before{content:'−'}
+  details.cartao > summary:hover{background:rgba(47,111,208,.10)}
+  details.cartao > summary span{font-weight:400;font-size:13px;color:var(--suave)}
+  details.cartao .conteudo{padding:0 20px 20px}
   .qr{text-align:center}
   .qr img{background:#fff;padding:12px;border-radius:12px;max-width:280px}
   @media(max-width:900px){.grade{grid-template-columns:1fr}}
@@ -97,6 +108,25 @@
 
   <!-- ABA MES -->
   <section id="aba-mes">
+    <details class="cartao">
+      <summary>Adicionar pessoa <span>— para quem não veio no PDF ou ficou sem telefone</span></summary>
+      <div class="conteudo">
+        <p class="dica">O cadastro feito aqui <strong>continua valendo</strong> quando você
+          importar o PDF do mês que vem.</p>
+        <div class="linha">
+          <div><label>Nome completo</label><input id="nNome" placeholder="ex.: Maria da Silva" style="width:240px" /></div>
+          <div><label>Dia do aniversário</label><input type="number" id="nDia" min="1" max="31" style="width:110px" /></div>
+          <div><label>Telefone</label><input id="nTelefone" placeholder="(67) 99999-8888" style="width:170px" /></div>
+          <div><label>Tratamento</label><select id="nGenero">
+            <option value="auto">detectar pelo nome</option>
+            <option value="F">Amiga</option><option value="M">Amigo</option></select></div>
+          <div><label>Coordenador</label><input id="nCoordenador" placeholder="opcional" style="width:150px" /></div>
+          <button class="acao" onclick="adicionarPessoa()">Adicionar</button>
+        </div>
+        <div id="msgNova"></div>
+      </div>
+    </details>
+
     <div class="cartao">
       <h2>Aniversariantes importados</h2>
       <p class="dica">Corrija o gênero (muda “Amigo/Amiga” no cartão) ou o telefone. Correções de gênero
@@ -287,20 +317,81 @@ async function carregarFila() {
   const data = $('dataFila').value;
   const { fila } = await (await fetch('/api/fila?data=' + data)).json();
   if (!fila.length) {
-    $('filaTabela').innerHTML = '<p class="dica">Ninguém faz aniversário nessa data na lista importada.</p>';
+    const dias = (estado && estado.base.dias) || [];
+    const [ano, mes, dia] = data.split('-');
+    $('filaTabela').innerHTML = dias.length
+      ? `<div class="aviso">
+          <strong>Ninguém faz aniversário em ${dia}/${mes}.</strong><br />
+          A lista importada (${estado.base.total} pessoas de ${estado.base.mesNome}) cobre
+          os dias <strong>${dias[0]} a ${dias[dias.length - 1]}</strong>. Escolha um dia:
+          <div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap">
+            ${dias.map((d) => `<button class="acao secundaria" onclick="irParaDia(${d})">${d}</button>`).join('')}
+          </div>
+        </div>`
+      : '<div class="aviso">Nenhum PDF importado ainda. Vá na aba <strong>Importar PDF</strong>.</div>';
     return;
   }
+  const vaoSair = fila.filter((i) => i.enviavel).length;
+  const fora = fila.length - vaoSair;
   $('filaTabela').innerHTML = `
-    <table><thead><tr><th>Nome</th><th>Cartão dirá</th><th>Telefone</th><th>Coordenador</th><th>Situação</th></tr></thead>
+    <div class="aviso ${vaoSair ? 'ok' : ''}">
+      <strong>${vaoSair}</strong> de ${fila.length} vão receber o cartão${
+        fora ? ` — ${fora} fora da lista` : ''}.
+    </div>
+    <table><thead><tr>
+      <th style="white-space:nowrap">
+        <input type="checkbox" id="marcarTudo" title="selecionar / limpar todos"
+          onchange="marcarTodos(this.checked)" /> Enviar
+      </th>
+      <th>Nome</th><th>Cartão dirá</th><th>Telefone</th>
+      <th>Coordenador</th><th>Situação</th></tr></thead>
     <tbody>${fila.map((i) => `
-      <tr>
-        <td>${i.pessoa.nome}</td>
+      <tr style="${i.pessoa.ativo ? '' : 'opacity:.45'}">
+        <td><input type="checkbox" ${i.pessoa.ativo ? 'checked' : ''}
+          title="desmarque para não enviar a esta pessoa"
+          onchange="alternarEnvio('${i.pessoa.id}', this.checked)" /></td>
+        <td style="${i.pessoa.ativo ? '' : 'text-decoration:line-through'}">${i.pessoa.nome}</td>
         <td>${i.textoCartao}</td>
         <td>${formatarTel(i.pessoa.telefone)}</td>
         <td>${i.pessoa.coordenador || '—'}</td>
         <td>${i.enviavel ? '<span class="tag" style="color:#7ee2a8">vai enviar</span>'
           : '<span class="tag alerta">' + i.motivos.join(', ') + '</span>'}</td>
       </tr>`).join('')}</tbody></table>`;
+
+  // Marcado quando todos estao selecionados; tracinho quando so uma parte.
+  const selecionaveis = fila.filter((i) => i.pessoa.telefone);
+  const marcados = selecionaveis.filter((i) => i.pessoa.ativo).length;
+  const mestre = $('marcarTudo');
+  if (mestre) {
+    mestre.checked = marcados > 0 && marcados === selecionaveis.length;
+    mestre.indeterminate = marcados > 0 && marcados < selecionaveis.length;
+  }
+}
+
+/** Tira/devolve uma pessoa da fila. Vale tambem na aba "Lista do mes". */
+async function alternarEnvio(id, ativo) {
+  await fetch('/api/pessoas/' + id, {
+    method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ativo }),
+  });
+  carregarFila();
+}
+
+async function marcarTodos(ativo) {
+  const { fila } = await (await fetch('/api/fila?data=' + $('dataFila').value)).json();
+  const alvos = fila.filter((i) => i.pessoa.ativo !== ativo && i.pessoa.telefone);
+  if (!alvos.length) return;
+  await Promise.all(alvos.map((i) => fetch('/api/pessoas/' + i.pessoa.id, {
+    method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ativo }),
+  })));
+  carregarFila();
+}
+
+function irParaDia(dia) {
+  const mes = String(estado.base.mes).padStart(2, '0');
+  $('dataFila').value = `${new Date().getFullYear()}-${mes}-${String(dia).padStart(2, '0')}`;
+  carregarFila();
 }
 
 async function carregarPessoas() {
@@ -324,8 +415,40 @@ async function carregarPessoas() {
         <td><input type="checkbox" ${p.ativo ? 'checked' : ''}
           onchange="salvarPessoa('${p.id}',{ativo:this.checked})" /></td>
         <td>${(p.problemas || []).map((x) => `<span class="tag alerta">${x}</span>`).join(' ') || '—'}</td>
-        <td><button class="acao secundaria" onclick="verCartao('${p.id}')">ver cartão</button></td>
+        <td style="white-space:nowrap">
+          <button class="acao secundaria" onclick="verCartao('${p.id}')">ver cartão</button>
+          ${p.origem === 'manual'
+            ? `<button class="acao perigo" style="padding:8px 12px"
+                 onclick="excluirPessoa('${p.id}', '${p.nome.replace(/'/g, '')}')">excluir</button>`
+            : ''}
+        </td>
       </tr>`).join('')}</tbody></table>`;
+}
+
+async function adicionarPessoa() {
+  const corpo = {
+    nome: $('nNome').value, dia: $('nDia').value, telefone: $('nTelefone').value,
+    genero: $('nGenero').value, coordenador: $('nCoordenador').value,
+  };
+  const r = await (await fetch('/api/pessoas', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(corpo),
+  })).json();
+  if (!r.ok) { $('msgNova').innerHTML = `<div class="aviso erro">❌ ${r.erro}</div>`; return; }
+  $('msgNova').innerHTML = `<div class="aviso ok">✅ ${r.pessoa.nome} cadastrada(o) no dia ${r.pessoa.dia}${
+    r.pessoa.telefone ? '' : ' — sem telefone, não será enviado'}.</div>`;
+  ['nNome', 'nDia', 'nTelefone', 'nCoordenador'].forEach((c) => ($(c).value = ''));
+  carregarPessoas();
+  carregarFila();
+  carregarEstado();
+}
+
+async function excluirPessoa(id, nome) {
+  if (!confirm(`Excluir ${nome} da lista? Isso apaga o cadastro feito à mão.`)) return;
+  const r = await (await fetch('/api/pessoas/' + id, { method: 'DELETE' })).json();
+  if (!r.ok) return alert(r.erro);
+  carregarPessoas();
+  carregarFila();
+  carregarEstado();
 }
 
 async function salvarPessoa(id, mudanca) {

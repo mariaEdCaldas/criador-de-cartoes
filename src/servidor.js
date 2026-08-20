@@ -5,7 +5,10 @@ import multer from 'multer';
 import QRCode from 'qrcode';
 import { CAMINHOS, RAIZ, lerConfig, salvarConfig } from './config.js';
 import { importarPdf } from './parser.js';
-import { importarParaBase, lerBase, salvarBase, lerEnviados } from './db.js';
+import {
+  importarParaBase, lerBase, salvarBase, lerEnviados,
+  adicionarPessoa, removerPessoa, normalizarTelefone,
+} from './db.js';
 import { gerarCartao, fontesDisponiveis, caminhoTemplate } from './cartao.js';
 import { salvarGeneroManual } from './genero.js';
 import { whatsapp } from './whatsapp.js';
@@ -38,6 +41,9 @@ export function criarServidor() {
         total: base.pessoas.length,
         semTelefone: base.pessoas.filter((p) => !p.telefone).length,
         generoIncerto: base.pessoas.filter((p) => p.generoConfianca !== 'alta').length,
+        // Dias que o PDF importado realmente cobre: o painel usa isso para
+        // explicar uma fila vazia em vez de so mostrar "ninguem".
+        dias: [...new Set(base.pessoas.map((p) => p.dia))].sort((a, b) => a - b),
       },
       config,
       whatsapp: { ...wa, qr: wa.qr ? await QRCode.toDataURL(wa.qr, { width: 320 }) : null },
@@ -90,7 +96,7 @@ export function criarServidor() {
       // A correcao vira dicionario: no mes que vem esse nome ja sai certo.
       salvarGeneroManual(pessoa.nome, genero);
     }
-    if (telefone !== undefined) pessoa.telefone = telefone ? String(telefone).replace(/\D/g, '') : null;
+    if (telefone !== undefined) pessoa.telefone = normalizarTelefone(telefone);
     if (ativo !== undefined) pessoa.ativo = Boolean(ativo);
     if (nome) pessoa.nome = nome;
     pessoa.editado = true;
@@ -100,6 +106,22 @@ export function criarServidor() {
 
     salvarBase(base);
     res.json({ ok: true, pessoa });
+  });
+
+  app.post('/api/pessoas', (req, res) => {
+    try {
+      res.json({ ok: true, pessoa: adicionarPessoa(req.body ?? {}) });
+    } catch (erro) {
+      res.status(400).json({ ok: false, erro: erro.message });
+    }
+  });
+
+  app.delete('/api/pessoas/:id', (req, res) => {
+    try {
+      res.json({ ok: true, pessoa: removerPessoa(req.params.id) });
+    } catch (erro) {
+      res.status(400).json({ ok: false, erro: erro.message });
+    }
   });
 
   app.get('/api/cartao/:id.png', async (req, res) => {
