@@ -14,6 +14,24 @@ npm install
 A arte em branco do cartão já está em `assets/template.jpg`. Se você trocar a arte,
 coloque o arquivo novo nessa pasta e aponte o caminho em `config.json` → `cartao.template`.
 
+## Deixar rodando sozinho (Windows)
+
+Na máquina de quem vai usar, entre na pasta `windows` e dê dois cliques em
+**INSTALAR.bat**. Ele instala as dependências se precisar, cria o atalho de
+inicialização e já liga o sistema.
+
+A partir daí o programa sobe sozinho toda vez que o computador liga, sem janela
+preta na tela. Na área de trabalho fica o atalho **Cartões de Aniversário**, que
+abre o painel no navegador.
+
+- **PARAR.bat** desliga o sistema.
+- **DESINSTALAR.bat** tira o início automático (os dados continuam salvos).
+- Se algo não subir, o motivo está em `dados/servidor.log`.
+
+O computador precisa estar ligado no horário do envio automático. Se ele costuma
+ficar desligado de manhã, mude o horário na aba *Configurações* para um período em
+que a máquina esteja em uso — ou mande na mão pelo botão *Enviar agora*.
+
 ## Acesso ao painel
 
 O painel pede e-mail e senha. Quem for **administrador** vê a aba *Usuários* e pode
@@ -132,4 +150,5 @@ src/
   db.js         lista importada + histórico de envios
   auth.js       login, sessão por cookie e cadastro de usuários
 config.json     posição do texto, fonte, horários, limites
+windows/        instalador de início automático no Windows
 ```
