@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { CAMINHOS } from './config.js';
+import { CAMINHOS, lerConfig } from './config.js';
+import { inferirGenero } from './genero.js';
 
 function lerJson(caminho, padrao) {
   if (!fs.existsSync(caminho)) return padrao;
@@ -48,6 +49,12 @@ export function importarParaBase(resultado) {
     };
   });
 
+  // Quem foi cadastrado a mao nao vem no PDF: precisa sobreviver a importacao.
+  const chavesDoPdf = new Set(pessoas.map(chaveDePessoa));
+  const manuais = anterior.pessoas.filter(
+    (p) => p.origem === 'manual' && !chavesDoPdf.has(chaveDePessoa(p)),
+  );
+
   if (fs.existsSync(CAMINHOS.aniversariantes)) {
     const backup = path.join(
       CAMINHOS.dados,
@@ -62,12 +69,91 @@ export function importarParaBase(resultado) {
     arquivo: resultado.arquivo,
     importadoEm: resultado.importadoEm,
     avisos: resultado.avisos,
-    pessoas,
+    pessoas: ordenar([...pessoas, ...manuais]),
   });
 }
 
 function chaveDePessoa(pessoa) {
   return `${(pessoa.nome ?? '').toLowerCase()}|${pessoa.dia}`;
+}
+
+
+function ordenar(pessoas) {
+  return pessoas.sort((a, b) => a.dia - b.dia || a.nome.localeCompare(b.nome, 'pt-BR'));
+}
+
+/**
+ * Aceita o telefone como a pessoa digitou -- "(67) 99999-8888", "67999998888",
+ * "5567999998888" -- e devolve sempre no formato usado no envio.
+ */
+export function normalizarTelefone(bruto) {
+  const digitos = String(bruto ?? '').replace(/\D/g, '');
+  if (!digitos) return null;
+  const { paisPadrao, dddPadrao } = lerConfig().envio;
+  if (digitos.length >= 12 && digitos.startsWith(paisPadrao)) return digitos;
+  if (digitos.length === 10 || digitos.length === 11) return paisPadrao + digitos;
+  if (digitos.length === 8 || digitos.length === 9) return paisPadrao + dddPadrao + digitos;
+  return digitos;
+}
+
+function gerarId(nome, dia, telefone) {
+  return `${dia}-${nome}-${telefone ?? 'sem-tel'}`
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .replace(/[^a-z0-9-]+/g, '-');
+}
+
+export function adicionarPessoa(dados) {
+  const base = lerBase();
+  const nome = String(dados.nome ?? '').trim();
+  const dia = Number(dados.dia);
+  if (!nome) throw new Error('Informe o nome.');
+  if (!dia || dia < 1 || dia > 31) throw new Error('Informe um dia entre 1 e 31.');
+
+  const telefone = normalizarTelefone(dados.telefone);
+  const genero = dados.genero && dados.genero !== 'auto'
+    ? dados.genero
+    : inferirGenero(nome).genero;
+
+  let id = gerarId(nome, dia, telefone);
+  if (base.pessoas.some((p) => p.id === id)) id += '-' + Date.now().toString(36);
+
+  const pessoa = {
+    id,
+    nome,
+    coordenador: String(dados.coordenador ?? '').trim() || null,
+    dia,
+    mes: base.mes ?? new Date().getMonth() + 1,
+    ano: dados.ano ? Number(dados.ano) : null,
+    genero,
+    generoOrigem: 'manual',
+    generoConfianca: 'alta',
+    telefone,
+    telefones: telefone ? [telefone] : [],
+    endereco: String(dados.endereco ?? '').trim(),
+    problemas: telefone ? [] : ['sem telefone'],
+    ativo: Boolean(telefone),
+    editado: true,
+    origem: 'manual',
+  };
+
+  base.pessoas = ordenar([...base.pessoas, pessoa]);
+  salvarBase(base);
+  return pessoa;
+}
+
+/** So apaga cadastro manual: o que veio do PDF volta na proxima importacao. */
+export function removerPessoa(id) {
+  const base = lerBase();
+  const pessoa = base.pessoas.find((p) => p.id === id);
+  if (!pessoa) throw new Error('Pessoa nao encontrada.');
+  if (pessoa.origem !== 'manual') {
+    throw new Error('Só dá para excluir quem foi cadastrado à mão. Para não enviar a alguém do PDF, desmarque "Ativo".');
+  }
+  base.pessoas = base.pessoas.filter((p) => p.id !== id);
+  salvarBase(base);
+  return pessoa;
 }
 
 export function aniversariantesDoDia(dia, mes) {
