@@ -78,6 +78,8 @@
   <span id="statusBase" class="pill wait">carregando…</span>
   <span id="statusWa" class="pill off">WhatsApp: —</span>
   <button class="acao secundaria" onclick="conectarWhatsapp()">Conectar WhatsApp</button>
+  <span id="euEmail" class="pill" style="background:var(--painel2);color:var(--suave)"></span>
+  <button class="acao secundaria" onclick="sair()">Sair</button>
 </header>
 
 <nav>
@@ -87,6 +89,7 @@
   <button data-aba="importar">Importar PDF</button>
   <button data-aba="envios">Histórico</button>
   <button data-aba="config">Configurações</button>
+  <button data-aba="usuarios" id="abaUsuarios" style="display:none">Usuários</button>
 </nav>
 
 <main>
@@ -237,6 +240,32 @@
       <img id="qrImg" alt="QR code" />
     </div>
   </section>
+  <!-- ABA USUARIOS (somente admin) -->
+  <section id="aba-usuarios">
+    <div class="cartao">
+      <h2>Quem pode entrar no sistema</h2>
+      <p class="dica">Cada pessoa entra com o próprio e-mail e senha. Marque
+        <strong>administrador</strong> só para quem também precisa cadastrar outras pessoas.</p>
+      <div class="linha">
+        <div><label>E-mail</label><input id="uEmail" type="email" placeholder="pessoa@exemplo.com" style="width:250px" /></div>
+        <div><label>Senha (mínimo 8 caracteres)</label><input id="uSenha" type="text" style="width:190px" /></div>
+        <div><label>&nbsp;</label><div><input type="checkbox" id="uAdmin" /> administrador</div></div>
+        <button class="acao" onclick="criarUsuario()">Cadastrar</button>
+      </div>
+      <div id="msgUsuario"></div>
+      <div id="usuariosTabela"></div>
+    </div>
+
+    <div class="cartao">
+      <h2>Trocar a minha senha</h2>
+      <div class="linha">
+        <div><label>Senha atual</label><input id="sAtual" type="password" style="width:190px" /></div>
+        <div><label>Senha nova</label><input id="sNova" type="password" style="width:190px" /></div>
+        <button class="acao" onclick="trocarSenha()">Trocar</button>
+      </div>
+      <div id="msgSenha"></div>
+    </div>
+  </section>
 </main>
 
 <script>
@@ -252,11 +281,72 @@ document.querySelectorAll('nav button').forEach((botao) => {
     if (botao.dataset.aba === 'mes') carregarPessoas();
     if (botao.dataset.aba === 'envios') carregarEnvios();
     if (botao.dataset.aba === 'cartao') atualizarPrevia();
+    if (botao.dataset.aba === 'usuarios') carregarUsuarios();
   };
 });
 
+let eu = null;
+
+async function sair() {
+  await fetch('/api/logout', { method: 'POST' });
+  window.location.href = '/login.html';
+}
+
+async function carregarUsuarios() {
+  if (!eu || !eu.admin) return;
+  const { usuarios } = await (await fetch('/api/usuarios')).json();
+  $('usuariosTabela').innerHTML = `
+    <table><thead><tr><th>E-mail</th><th>Papel</th><th>Desde</th><th></th></tr></thead>
+    <tbody>${usuarios.map((u) => `
+      <tr>
+        <td>${u.email}</td>
+        <td>${u.admin ? '<span class="tag alerta">administrador</span>' : '<span class="tag">usuário</span>'}</td>
+        <td>${new Date(u.criadoEm).toLocaleDateString('pt-BR')}</td>
+        <td>${u.id === eu.id ? '<span class="tag">você</span>'
+          : `<button class="acao perigo" style="padding:7px 12px"
+               onclick="removerUsuario('${u.id}','${u.email}')">remover</button>`}</td>
+      </tr>`).join('')}</tbody></table>`;
+}
+
+async function criarUsuario() {
+  const corpo = { email: $('uEmail').value, senha: $('uSenha').value, admin: $('uAdmin').checked };
+  const r = await (await fetch('/api/usuarios', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(corpo),
+  })).json();
+  $('msgUsuario').innerHTML = r.ok
+    ? `<div class="aviso ok">✅ ${r.usuario.email} cadastrado. Anote a senha e passe para a pessoa.</div>`
+    : `<div class="aviso erro">❌ ${r.erro}</div>`;
+  if (r.ok) { $('uEmail').value = ''; $('uSenha').value = ''; $('uAdmin').checked = false; carregarUsuarios(); }
+}
+
+async function removerUsuario(id, email) {
+  if (!confirm(`Remover o acesso de ${email}?`)) return;
+  const r = await (await fetch('/api/usuarios/' + id, { method: 'DELETE' })).json();
+  if (!r.ok) return alert(r.erro);
+  carregarUsuarios();
+}
+
+async function trocarSenha() {
+  const r = await (await fetch('/api/senha', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ atual: $('sAtual').value, nova: $('sNova').value }),
+  })).json();
+  $('msgSenha').innerHTML = r.ok
+    ? '<div class="aviso ok">✅ senha trocada</div>'
+    : `<div class="aviso erro">❌ ${r.erro}</div>`;
+  if (r.ok) { $('sAtual').value = ''; $('sNova').value = ''; }
+}
+
 async function carregarEstado() {
-  estado = await (await fetch('/api/estado')).json();
+  const resposta = await fetch('/api/estado');
+  if (resposta.status === 401) return void (window.location.href = '/login.html');
+  estado = await resposta.json();
+
+  if (!eu) {
+    eu = await (await fetch('/api/eu')).json();
+    $('euEmail').textContent = eu.email;
+    if (eu.admin) $('abaUsuarios').style.display = '';
+  }
   const b = estado.base;
   $('statusBase').className = 'pill ' + (b.total ? 'on' : 'off');
   $('statusBase').textContent = b.total

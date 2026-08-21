@@ -14,6 +14,26 @@ npm install
 A arte em branco do cartão já está em `assets/template.jpg`. Se você trocar a arte,
 coloque o arquivo novo nessa pasta e aponte o caminho em `config.json` → `cartao.template`.
 
+## Acesso ao painel
+
+O painel pede e-mail e senha. Quem for **administrador** vê a aba *Usuários* e pode
+cadastrar mais gente (aba Usuários → e-mail, senha, cadastrar). Cada pessoa troca a
+própria senha no mesmo lugar.
+
+Se ninguém estiver cadastrado ainda:
+
+```bash
+node src/index.js usuario --email=fulano@exemplo.com --senha=umaSenhaBoa --admin
+node src/index.js usuario     # lista quem tem acesso
+```
+
+Num servidor novo, dá para criar o primeiro administrador pelas variáveis de ambiente
+`ADMIN_EMAIL` e `ADMIN_SENHA` — o sistema cria a conta sozinho no primeiro start,
+se ainda não houver nenhuma.
+
+As senhas ficam em `dados/usuarios.json` como hash scrypt com sal — o texto da senha
+nunca é gravado. Essa pasta está no `.gitignore`.
+
 ## Rotina de todo mês
 
 1. **Abra o painel:**
@@ -110,5 +130,6 @@ src/
   envio.js      monta a fila do dia e dispara com pausas
   agenda.js     disparo diário no horário configurado
   db.js         lista importada + histórico de envios
+  auth.js       login, sessão por cookie e cadastro de usuários
 config.json     posição do texto, fonte, horários, limites
 ```

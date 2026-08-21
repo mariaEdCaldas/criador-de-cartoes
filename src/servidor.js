@@ -14,6 +14,10 @@ import { salvarGeneroManual } from './genero.js';
 import { whatsapp } from './whatsapp.js';
 import { enviarDoDia, estadoDaRodada, previaDoDia } from './envio.js';
 import { iniciarAgenda } from './agenda.js';
+import {
+  autenticar, gerarToken, definirCookie, limparCookie, usuarioDaRequisicao,
+  exigirLogin, exigirAdmin, listarUsuarios, criarUsuario, removerUsuario, trocarSenha,
+} from './auth.js';
 
 const upload = multer({ dest: CAMINHOS.uploads });
 
@@ -26,6 +30,62 @@ function dataDaQuery(query) {
 export function criarServidor() {
   const app = express();
   app.use(express.json({ limit: '2mb' }));
+
+  app.post('/api/login', (req, res) => {
+    const usuario = autenticar(req.body?.email, req.body?.senha);
+    if (!usuario) return res.status(401).json({ ok: false, erro: 'E-mail ou senha incorretos.' });
+    definirCookie(req, res, gerarToken(usuario));
+    res.json({ ok: true, usuario: { email: usuario.email, admin: usuario.admin } });
+  });
+
+  app.post('/api/logout', (req, res) => {
+    limparCookie(res);
+    res.json({ ok: true });
+  });
+
+  // Daqui para baixo, tudo exige sessao valida.
+  app.use('/api', exigirLogin);
+
+  app.get('/api/eu', (req, res) => {
+    res.json({ email: req.usuario.email, admin: req.usuario.admin, id: req.usuario.id });
+  });
+
+  app.get('/api/usuarios', exigirAdmin, (req, res) => {
+    res.json({ usuarios: listarUsuarios() });
+  });
+
+  app.post('/api/usuarios', exigirAdmin, (req, res) => {
+    try {
+      res.json({ ok: true, usuario: criarUsuario(req.body ?? {}) });
+    } catch (erro) {
+      res.status(400).json({ ok: false, erro: erro.message });
+    }
+  });
+
+  app.delete('/api/usuarios/:id', exigirAdmin, (req, res) => {
+    try {
+      if (req.params.id === req.usuario.id) throw new Error('Você não pode remover a si mesmo.');
+      res.json({ ok: true, usuario: removerUsuario(req.params.id) });
+    } catch (erro) {
+      res.status(400).json({ ok: false, erro: erro.message });
+    }
+  });
+
+  app.post('/api/senha', (req, res) => {
+    try {
+      trocarSenha(req.usuario.id, req.body?.atual, req.body?.nova);
+      res.json({ ok: true });
+    } catch (erro) {
+      res.status(400).json({ ok: false, erro: erro.message });
+    }
+  });
+
+  // O painel em si tambem so abre logado; a tela de login segue publica.
+  app.use((req, res, next) => {
+    const protegido = req.path === '/' || req.path === '/index.html';
+    if (protegido && !usuarioDaRequisicao(req)) return res.redirect('/login.html');
+    next();
+  });
   app.use(express.static(path.join(RAIZ, 'src', 'publico')));
 
   app.get('/api/estado', async (req, res) => {

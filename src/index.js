@@ -8,6 +8,7 @@ import { criarServidor } from './servidor.js';
 import { iniciarAgenda } from './agenda.js';
 import { enviarDoDia, previaDoDia } from './envio.js';
 import { whatsapp } from './whatsapp.js';
+import { criarUsuario, listarUsuarios, semearAdmin } from './auth.js';
 
 const [, , comando, ...argumentos] = process.argv;
 const config = lerConfig();
@@ -94,7 +95,24 @@ const comandos = {
     }
   },
 
+  async usuario() {
+    const email = argumento('email');
+    const senha = argumento('senha');
+    if (!email || !senha) {
+      console.log('Usuarios cadastrados:');
+      for (const u of listarUsuarios()) {
+        console.log(`  ${u.email}${u.admin ? '  (administrador)' : ''}`);
+      }
+      console.log('');
+      console.log('Para cadastrar: node src/index.js usuario --email=... --senha=... --admin');
+      return;
+    }
+    const novo = criarUsuario({ email, senha, admin: argumentos.includes('--admin') });
+    console.log(`Usuario ${novo.email} criado${novo.admin ? ' como administrador' : ''}.`);
+  },
+
   async servidor() {
+    semearAdmin();
     const app = criarServidor();
     const porta = Number(argumento('porta', config.servidor.porta));
     app.listen(porta, () => {
@@ -113,7 +131,9 @@ if (!escolhido) {
   npm run preview -- --nome=Joao --genero=M   gera um cartao de teste
   npm run enviar -- --simular            simula o envio do dia (nao manda nada)
   npm run enviar                         envia os cartoes de hoje pelo WhatsApp
-  node src/index.js lista                mostra a lista importada`);
+  node src/index.js lista                mostra a lista importada
+  node src/index.js usuario              lista quem tem acesso ao painel
+  node src/index.js usuario --email=a@b.com --senha=... --admin   cadastra alguem`);
   process.exit(1);
 }
 

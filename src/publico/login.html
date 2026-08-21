@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Entrar — Criador de Cartões</title>
+<style>
+  :root{
+    --fundo:#0e1a2b; --painel:#16263d; --painel2:#1d3050;
+    --borda:#2a4368; --texto:#eaf1fb; --suave:#9db2d0; --azul:#2f6fd0; --amarelo:#f5b301;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;
+    font-family:"Segoe UI",system-ui,sans-serif;background:var(--fundo);color:var(--texto);padding:24px}
+  .caixa{background:var(--painel);border:1px solid var(--borda);border-radius:14px;
+    padding:32px;width:100%;max-width:390px}
+  h1{font-size:19px;margin:0 0 6px}
+  p.dica{color:var(--suave);font-size:13px;margin:0 0 24px;line-height:1.5}
+  label{display:block;font-size:13px;color:var(--suave);margin:0 0 6px}
+  input{width:100%;background:var(--painel2);border:1px solid var(--borda);color:var(--texto);
+    padding:11px 12px;border-radius:8px;font-size:14px;font-family:inherit;margin-bottom:16px}
+  input:focus{outline:2px solid var(--azul);outline-offset:-1px}
+  button{width:100%;background:var(--azul);color:#fff;border:none;padding:12px;border-radius:8px;
+    font-weight:600;cursor:pointer;font-size:15px}
+  button:hover{filter:brightness(1.12)}
+  button[disabled]{opacity:.5;cursor:not-allowed}
+  .erro{background:rgba(213,73,63,.15);border:1px solid rgba(213,73,63,.5);color:#ff9c94;
+    padding:11px 13px;border-radius:8px;font-size:13.5px;margin-bottom:16px;line-height:1.45}
+</style>
+</head>
+<body>
+  <form class="caixa" onsubmit="entrar(event)">
+    <h1>🎂 Criador de Cartões</h1>
+    <p class="dica">Entre para ver a lista de aniversariantes e enviar os cartões.</p>
+    <div id="msg"></div>
+    <label for="email">E-mail</label>
+    <input id="email" type="email" autocomplete="username" required autofocus />
+    <label for="senha">Senha</label>
+    <input id="senha" type="password" autocomplete="current-password" required />
+    <button id="botao" type="submit">Entrar</button>
+  </form>
+
+<script>
+async function entrar(evento) {
+  evento.preventDefault();
+  const botao = document.getElementById('botao');
+  botao.disabled = true;
+  botao.textContent = 'Entrando…';
+  document.getElementById('msg').innerHTML = '';
+
+  try {
+    const resposta = await fetch('/api/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: document.getElementById('email').value,
+        senha: document.getElementById('senha').value,
+      }),
+    });
+    const dados = await resposta.json();
+    if (dados.ok) return void (window.location.href = '/');
+    document.getElementById('msg').innerHTML = '<div class="erro">' + dados.erro + '</div>';
+  } catch {
+    document.getElementById('msg').innerHTML = '<div class="erro">Não consegui falar com o servidor.</div>';
+  }
+  botao.disabled = false;
+  botao.textContent = 'Entrar';
+  document.getElementById('senha').value = '';
+}
+</script>
+</body>
+</html>
