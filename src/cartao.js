@@ -79,14 +79,17 @@ export async function gerarCartao(pessoa, config, opcoes = {}) {
   ctx.fillStyle = fonte.cor;
   ctx.fillText(texto, x, y);
 
-  const png = canvas.toBuffer('image/png');
-  if (opcoes.apenasBuffer) return { buffer: png, texto };
+  // JPEG para lote (a arte de origem ja e JPEG, entao nao se perde nada e o
+  // arquivo fica ~80% menor); PNG continua o padrao para previa e envio.
+  const ehJpeg = opcoes.formato === 'jpeg';
+  const saida = ehJpeg ? canvas.toBuffer('image/jpeg', 92) : canvas.toBuffer('image/png');
+  if (opcoes.apenasBuffer) return { buffer: saida, texto, formato: ehJpeg ? 'jpeg' : 'png' };
 
-  const nomeArquivo = `${pessoa.id ?? `${pessoa.dia}-${primeiroNome(pessoa.nome)}`}.png`
+  const nomeArquivo = `${pessoa.id ?? `${pessoa.dia}-${primeiroNome(pessoa.nome)}`}.${ehJpeg ? 'jpg' : 'png'}`
     .replace(/[^a-zA-Z0-9.\-_]/g, '-');
   const destino = path.join(CAMINHOS.cartoes, nomeArquivo);
-  fs.writeFileSync(destino, png);
-  return { arquivo: destino, buffer: png, texto };
+  fs.writeFileSync(destino, saida);
+  return { arquivo: destino, buffer: saida, texto };
 }
 
 export function fontesDisponiveis() {

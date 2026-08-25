@@ -3,6 +3,7 @@ import path from 'node:path';
 import express from 'express';
 import multer from 'multer';
 import QRCode from 'qrcode';
+import archiver from 'archiver';
 import { CAMINHOS, RAIZ, lerConfig, salvarConfig } from './config.js';
 import { importarPdf } from './parser.js';
 import {
@@ -182,6 +183,55 @@ export function criarServidor() {
     } catch (erro) {
       res.status(400).json({ ok: false, erro: erro.message });
     }
+  });
+
+  /**
+   * Todos os cartoes de um dia num zip so. Inclui tambem quem esta
+   * desmarcado ou sem telefone -- e justamente para esses que serve, ja que
+   * o envio automatico nao alcanca essa gente.
+   */
+  app.get('/api/cartoes.zip', async (req, res) => {
+    const data = dataDaQuery(req.query);
+    const fila = previaDoDia(data);
+    if (!fila.length) return res.status(404).send('Ninguém faz aniversário nessa data.');
+
+    const config = lerConfig();
+    const carimbo = [
+      data.getFullYear(),
+      String(data.getMonth() + 1).padStart(2, '0'),
+      String(data.getDate()).padStart(2, '0'),
+    ].join('-');
+
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader('Content-Disposition', `attachment; filename="cartoes-${carimbo}.zip"`);
+
+    // PNG ja vem comprimido; recomprimir so gastaria CPU.
+    const zip = archiver('zip', { store: true });
+    zip.on('error', (erro) => {
+      console.error('[zip]', erro.message);
+      res.destroy();
+    });
+    zip.pipe(res);
+
+    const usados = new Set();
+    for (const item of fila) {
+      try {
+        const { buffer } = await gerarCartao(item.pessoa, config, {
+          apenasBuffer: true, formato: 'jpeg',
+        });
+        const limpo = item.pessoa.nome.replace(/[^\p{L}\p{N} .-]/gu, '-').trim();
+        let nome = `${limpo}.jpg`;
+        let n = 2;
+        while (usados.has(nome)) nome = `${limpo} (${n++}).jpg`;
+        usados.add(nome);
+        zip.append(buffer, { name: nome });
+      } catch (erro) {
+        zip.append(`Não consegui gerar o cartão de ${item.pessoa.nome}: ${erro.message}`,
+          { name: `ERRO - ${item.pessoa.nome}.txt` });
+      }
+    }
+
+    await zip.finalize();
   });
 
   app.get('/api/cartao/:id.png', async (req, res) => {

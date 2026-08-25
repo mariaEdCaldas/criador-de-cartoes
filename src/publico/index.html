@@ -102,6 +102,7 @@
       <div class="linha">
         <div><label>Data</label><input type="date" id="dataFila" onchange="carregarFila()" /></div>
         <button class="acao secundaria" onclick="enviar(true)">Simular (não envia)</button>
+        <button class="acao secundaria" id="btnZip" onclick="baixarZip()">⬇ Baixar cartões (.zip)</button>
         <button class="acao" id="btnEnviar" onclick="enviar(false)">Enviar agora</button>
       </div>
       <div id="progresso"></div>
@@ -624,6 +625,39 @@ async function enviar(simulacao) {
     body: JSON.stringify({ data: $('dataFila').value, simulacao }),
   });
   carregarEstado();
+}
+
+/**
+ * Baixa todos os cartões do dia num zip. Entra todo mundo da data, inclusive
+ * quem está desmarcado ou sem telefone -- esses são os que precisam ser
+ * entregues na mão.
+ */
+async function baixarZip() {
+  const data = $('dataFila').value;
+  const botao = $('btnZip');
+  const rotulo = botao.textContent;
+  botao.disabled = true;
+  botao.textContent = 'Gerando os cartões…';
+
+  try {
+    const resposta = await fetch('/api/cartoes.zip?data=' + data);
+    if (!resposta.ok) throw new Error(await resposta.text());
+
+    const blob = await resposta.blob();
+    const endereco = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = endereco;
+    link.download = 'cartoes-' + data + '.zip';
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(endereco);
+  } catch (erro) {
+    alert('Não consegui gerar o zip: ' + erro.message);
+  }
+
+  botao.disabled = false;
+  botao.textContent = rotulo;
 }
 
 async function conectarWhatsapp() {

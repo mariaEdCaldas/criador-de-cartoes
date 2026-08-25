@@ -76,6 +76,10 @@ nunca é gravado. Essa pasta está no `.gitignore`.
 5. **Aba "Hoje"** → confira a fila do dia e clique em **Simular** (gera os cartões em
    `cartoes/` sem mandar nada) e depois em **Enviar agora**.
 
+O botão **Baixar cartões (.zip)** junta todos os cartões daquele dia num arquivo só.
+Entra todo mundo da data, inclusive quem está desmarcado ou sem telefone — é a saída
+para mandar na mão para quem o envio automático não alcança.
+
 Para o envio acontecer sozinho todo dia, ligue **Envio automático** na aba
 *Configurações* e escolha o horário. O computador precisa estar ligado com o
 `npm start` rodando naquele horário.
