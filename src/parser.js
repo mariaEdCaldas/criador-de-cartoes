@@ -1,4 +1,5 @@
-import { extrairLinhas } from './pdf.js';
+import { extrairFragmentos } from './pdf.js';
+import { analisarTabela, ehFormatoTabela } from './parser-tabela.js';
 import { extrairTelefones } from './telefone.js';
 import { inferirGenero } from './genero.js';
 
@@ -157,7 +158,7 @@ export function analisarLinhas(linhas, opcoes = {}) {
     if (ano && (ano < 1900 || ano > new Date().getFullYear())) problemas.push(`ano suspeito (${ano})`);
     if (dia && (dia < 1 || dia > 31)) problemas.push(`dia invalido (${dia})`);
     for (const t of telefones) problemas.push(...t.avisos.map((a) => `${t.formatado}: ${a}`));
-    if (genero.confianca !== 'alta') problemas.push(`genero incerto (${genero.origem})`);
+    if (genero.confianca === 'baixa') problemas.push(`genero incerto (${genero.origem})`);
 
     return {
       id: null,
@@ -202,9 +203,28 @@ export function analisarLinhas(linhas, opcoes = {}) {
   return { registros: unicos, avisos };
 }
 
+/**
+ * A lista chega em dois formatos diferentes conforme quem monta o arquivo:
+ * blocos com "*Nome*" e cabecalhos "Coordenador:", ou uma tabela vinda do
+ * Excel. Aqui escolhemos o leitor certo olhando o conteudo.
+ */
 export async function importarPdf(caminhoPdf, opcoes = {}) {
-  const linhas = await extrairLinhas(caminhoPdf);
-  const resultado = analisarLinhas(linhas, opcoes);
+  const fragmentos = await extrairFragmentos(caminhoPdf);
+  const linhas = fragmentos.map((f) => f.map((x) => x.texto).join(' ').trim());
+
+  const formato = ehFormatoTabela(linhas) ? 'tabela' : 'blocos';
+  const resultado = formato === 'tabela'
+    ? analisarTabela(fragmentos, opcoes)
+    : analisarLinhas(linhas, opcoes);
+
+  if (resultado.registros.length === 0) {
+    throw new Error(
+      'Não reconheci nenhum aniversariante nesse PDF. Confira se é a lista do mês ' +
+      '(nome, telefone e data de nascimento em cada linha).',
+    );
+  }
+
+  marcarTelefonesRepetidos(resultado.registros);
 
   const meses = resultado.registros.map((r) => r.mes).filter(Boolean);
   const mesPredominante = meses.length
@@ -217,6 +237,31 @@ export async function importarPdf(caminhoPdf, opcoes = {}) {
     mes: mesPredominante,
     mesNome: mesPredominante ? MESES[mesPredominante - 1] : null,
     arquivo: caminhoPdf,
+    formato,
     importadoEm: new Date().toISOString(),
   };
+}
+
+/**
+ * Duas pessoas com o mesmo telefone no mesmo dia significa que aquele numero
+ * receberia dois cartoes. As vezes e a mesma pessoa digitada duas vezes com
+ * grafia diferente, as vezes sao parentes de verdade -- quem decide e o
+ * painel, aqui so sinalizamos.
+ */
+function marcarTelefonesRepetidos(registros) {
+  const porChave = new Map();
+  for (const registro of registros) {
+    if (!registro.telefone) continue;
+    const chave = registro.telefone + '|' + registro.dia;
+    if (!porChave.has(chave)) porChave.set(chave, []);
+    porChave.get(chave).push(registro);
+  }
+
+  for (const grupo of porChave.values()) {
+    if (grupo.length < 2) continue;
+    for (const registro of grupo) {
+      const outros = grupo.filter((r) => r !== registro).map((r) => r.nome);
+      registro.problemas.push('mesmo telefone de: ' + outros.join(', '));
+    }
+  }
 }

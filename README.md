@@ -60,9 +60,13 @@ nunca é gravado. Essa pasta está no `.gitignore`.
    ```
    e acesse <http://localhost:3000>.
 
-2. **Aba "Importar PDF"** → envie o arquivo *Aniversariantes &lt;mês&gt;.pdf*.
+2. **Aba "Importar PDF"** → envie o PDF do mês.
    O sistema lê nome, telefone, data de nascimento e coordenador de cada pessoa e
    substitui a lista do mês anterior (uma cópia da lista antiga fica em `dados/`).
+
+   Funciona com os **dois formatos** que a lista costuma vir, escolhendo o leitor
+   sozinho: o antigo, em blocos com `*Nome*` e `Coordenador:`, e o de tabela
+   exportada do Excel (`Dia | Coordenador | Nome | Telefone | Data de nascimento`).
 
 3. **Aba "Lista do mês"** → marque a caixa **só pendências** e resolva o que aparecer:
    nomes sem telefone, gênero incerto, número com formato estranho. Trocar o
@@ -120,6 +124,16 @@ spam. Com ~25 pessoas por dia, uma rodada leva cerca de 20 minutos.
 enviar, o sistema pergunta ao próprio WhatsApp qual é o número real (`getNumberId`), então
 esses casos costumam funcionar. Quem não tem WhatsApp aparece como erro no histórico.
 
+**Quem está marcado como falecido não recebe.** Se a planilha traz "(FALECEU)" na
+linha da pessoa, ela entra na lista já desmarcada e com a pendência à vista. Confira
+antes de enviar — um cartão de aniversário para quem morreu é o pior erro possível
+deste sistema.
+
+**Duas pessoas com o mesmo telefone no mesmo dia** aparecem com a pendência
+"mesmo telefone de: …". Às vezes é a mesma pessoa digitada duas vezes com grafia
+diferente, às vezes são parentes de verdade que compartilham o número. Quem decide
+é você: desmarque quem não deve receber.
+
 **13 pessoas do PDF de agosto não têm telefone** — são os nomes soltos no fim de cada
 bloco (Carmen, Cida Farias, Arissa, Sebastiana, Adair, Ilda Meire, Tete, Dr. Diego,
 Thais…). Eles aparecem na lista marcados como pendência; preencha o telefone à mão se
@@ -143,8 +157,9 @@ Não remova essas linhas.
 src/
   index.js      comandos de terminal
   servidor.js   API do painel + publico/index.html
-  pdf.js        extrai o texto do PDF (reconstruindo as linhas)
-  parser.js     transforma o texto em registros de pessoas
+  pdf.js        extrai o texto do PDF preservando as colunas
+  parser.js     escolhe o formato e lê a lista em blocos
+  parser-tabela.js  lê a lista em formato de tabela (Excel)
   telefone.js   normaliza os números
   genero.js     deduz Amigo/Amiga e guarda suas correções
   cartao.js     escreve o nome sobre a arte

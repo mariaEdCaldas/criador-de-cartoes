@@ -30,6 +30,7 @@ vania vanuza vera vivian viviane wanessa wanir yolanda zeide zelia zenaide zenit
 zilda zeldite edelinia edilenia celiam agnes amelia arissa cacilda carmen elusia
 feliciana gilva jhoilly joareis kailaine kamilla lauren leidiana lorena lucia
 maryoris mikaela nesynta reni rosemeire sidneia valdirene vandira wanderleia
+anny aracy avany daniely deise denise dirce domingas dulce ediene edite elci elenir elis elisabeth elizabeth elizabethe elizene elyane emeire emily erci evelyn gabrielle geni gleici glauce grazielle hadrielly hellen hingrydy ingrid irany ivanir ivone jaci jacy jeniffer jheniffer joy joyce juditi kate kelly kemelly leci leiner leise lenize liane lidiane lilian liliane loreany loren luciene lucivone maite marcimeire marilei marithe marli monick natil natividade niviane rayane roselaine roseli rosely rosinei rozeli rute ruth sandracelly sarah selenir sibelle sirley soeli solange suelen sueli susan yasmin yosari iris
 `.trim().split(/\s+/));
 
 const MASCULINOS = new Set(`
@@ -44,6 +45,7 @@ nesynson nilson nilton nicolas osvaldo paulo pedro rafael raimundo reginaldo ren
 ricardo roberto rodrigo rogerio ronaldo salvador samuel sandro sebastiao sergio
 sidnei silvio thiago tyson vagner valdicio valdir vander vanderlei victor vicente
 vitor wagner walter wanderley washington wellington wesley willian zamarso ze
+abdallah alcides alex altair ary atamir caique callebe cesar claudinei cleber edir eliezer elyweltoon erick frederic geremias gil henrique ironil ivan izaias jair jhonathan jonas juracy kevem luender matheus tadashi ulisses valdeair valdeci valter waldecir william
 `.trim().split(/\s+/));
 
 const TERMINACOES_FEMININAS = [

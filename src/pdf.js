@@ -5,11 +5,11 @@ import { pathToFileURL } from 'node:url';
 const require = createRequire(import.meta.url);
 
 /**
- * Extrai o texto do PDF reconstruindo as linhas pela posicao vertical de cada
- * fragmento. O PDF gerado pelo Word espalha nome, endereco e telefone em
- * colunas; agrupar por linha deixa cada registro legivel para o parser.
+ * Extrai o texto do PDF preservando as colunas: devolve uma lista de linhas
+ * visuais, cada uma com os pedacos de texto e a posicao horizontal deles.
+ * A posicao importa para ler tabelas, onde cada coluna cai num x diferente.
  */
-export async function extrairLinhas(caminhoPdf) {
+export async function extrairFragmentos(caminhoPdf) {
   const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
   // No Windows o pdf.js precisa de uma URL file:// para carregar o worker.
   pdfjs.GlobalWorkerOptions.workerSrc = pathToFileURL(
@@ -31,10 +31,10 @@ export async function extrairLinhas(caminhoPdf) {
 
     const porLinha = new Map();
     for (const item of conteudo.items) {
-      if (!item.str) continue;
+      if (!item.str || !item.str.trim()) continue;
       const x = item.transform[4];
       const y = item.transform[5];
-      // Arredonda o Y para juntar fragmentos da mesma linha visual.
+      // Arredonda o Y para juntar pedacos da mesma linha visual.
       const chave = Math.round(y / 3);
       if (!porLinha.has(chave)) porLinha.set(chave, []);
       porLinha.get(chave).push({ x, texto: item.str, largura: item.width ?? 0 });
@@ -42,8 +42,8 @@ export async function extrairLinhas(caminhoPdf) {
 
     const ordenadas = [...porLinha.entries()]
       .sort((a, b) => b[0] - a[0]) // do topo para o rodape
-      .map(([, fragmentos]) => juntarFragmentos(fragmentos))
-      .filter(Boolean);
+      .map(([, fragmentos]) => agrupar(fragmentos))
+      .filter((linha) => linha.length > 0);
 
     linhas.push(...ordenadas);
     pagina.cleanup();
@@ -53,26 +53,37 @@ export async function extrairLinhas(caminhoPdf) {
   return linhas;
 }
 
+/** Mesma extracao, achatada em texto puro -- usada pelo parser em blocos. */
+export async function extrairLinhas(caminhoPdf) {
+  const linhas = await extrairFragmentos(caminhoPdf);
+  return linhas.map((fragmentos) => fragmentos.map((f) => f.texto).join(' ').trim());
+}
+
 /**
- * Junta os fragmentos de uma linha usando a distancia horizontal entre eles.
- * Sem isso, palavras que o PDF quebrou em dois pedacos ("Ro" + "drigues")
- * virariam duas palavras separadas.
+ * Junta os pedacos vizinhos de uma mesma linha. Pedacos colados (distancia
+ * pequena) viram um texto so -- e o que remonta palavras que o PDF quebrou no
+ * meio. Um vao grande significa outra coluna, entao o pedaco fica separado.
  */
-function juntarFragmentos(fragmentos) {
+function agrupar(fragmentos) {
   const ordenados = fragmentos.sort((a, b) => a.x - b.x);
-  let saida = '';
+  const grupos = [];
+  let atual = null;
   let fimAnterior = null;
 
   for (const fragmento of ordenados) {
-    if (!fragmento.texto) continue;
-    if (fimAnterior !== null) {
-      const espaco = fragmento.x - fimAnterior;
-      const jaTemEspaco = /\s$/.test(saida) || /^\s/.test(fragmento.texto);
-      if (!jaTemEspaco && espaco > 1.2) saida += ' ';
+    const vao = fimAnterior === null ? Infinity : fragmento.x - fimAnterior;
+
+    if (atual && vao <= 10) {
+      const precisaEspaco = vao > 1.2 && !/\s$/.test(atual.texto) && !/^\s/.test(fragmento.texto);
+      atual.texto += (precisaEspaco ? ' ' : '') + fragmento.texto;
+    } else {
+      atual = { x: fragmento.x, texto: fragmento.texto };
+      grupos.push(atual);
     }
-    saida += fragmento.texto;
     fimAnterior = fragmento.x + fragmento.largura;
   }
 
-  return saida.replace(/\s+/g, ' ').trim();
+  return grupos
+    .map((g) => ({ x: g.x, texto: g.texto.replace(/\s+/g, ' ').trim() }))
+    .filter((g) => g.texto);
 }
